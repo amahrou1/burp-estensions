@@ -1,0 +1,22 @@
+# Compiled files
+out/
+*.class
+*.jar
+
+# IDE files
+.idea/
+.vscode/
+*.iml
+.classpath
+.project
+.settings/
+
+# Burp API
+burp-extender-api.jar
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
