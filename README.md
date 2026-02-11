@@ -1,253 +1,122 @@
-# Burp Link Extractor Extension
+# JWT Extractor — Burp Suite Extension
 
-A powerful Burp Suite extension that automatically extracts all links and endpoints from HTTP responses. Works with Burp Suite Community Edition!
+A Jython-based Burp Suite extension that extracts JWTs, API keys, and other secrets from HTTP responses. Works with **Burp Suite Community Edition**.
+
+## What It Extracts
+
+| Pattern | Example |
+|---------|---------|
+| **JWT** | `eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkw...` |
+| **AWS Access Key** | `AKIAIOSFODNN7EXAMPLE` |
+| **Google API Key** | `AIzaSyA-random-key-value-here123456` |
+| **GitHub Token** | `ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx` |
+| **Slack Token** | `xoxb-xxxxxxxxxxxx-xxxxxxxxxxxx` |
+| **Bearer Token** | `Bearer eyJhbGciOiJIUzI1NiJ9...` |
+
+Adding a new pattern is a one-line change in `regex_engine.py` — no other file needs modification.
 
 ## Features
 
-✅ **Automatic Link Extraction** - Captures links from all HTTP traffic automatically
-✅ **Absolute URLs** - Extracts all `http://` and `https://` URLs
-✅ **Relative Paths** - Finds endpoints like `/api/users` and converts them to absolute URLs
-✅ **Smart Endpoint Detection** - Detects patterns like `Method="GET" "/users/login"`
-✅ **Deduplication** - Removes duplicate links globally (only shows unique URLs)
-✅ **Scope Filter** - Option to only capture in-scope URLs
-✅ **Export Functionality** - Save all discovered links to a text file
-✅ **Clean UI** - LinkFinder-style display in a separate Burp tab
+- **Context menu integration** — right-click any request(s) and select "Send to JWT Extractor"
+- **Smart filtering** — only scans text-based responses (HTML, JS, JSON, XML), skips binaries
+- **Deduplication** — same token from multiple endpoints is stored once, all source URLs tracked
+- **JWT decoding** — decoded header and payload displayed as pretty-printed JSON
+- **Export** — save findings as JSON or CSV
+- **Copy to clipboard** — one-click copy of any token
 
----
-
-## Installation Guide
-
-### Prerequisites
+## Prerequisites
 
 1. **Burp Suite Community Edition** (or Professional)
-   - Download from: https://portswigger.net/burp/communitydownload
+   — Download from https://portswigger.net/burp/communitydownload
 
-2. **Java Development Kit (JDK)**
-   - Download JDK 8 or higher from: https://adoptium.net/
-   - Verify installation: `java -version`
+2. **Jython Standalone JAR**
+   — Download from https://www.jython.org/download
+   — You need the **standalone** JAR (e.g. `jython-standalone-2.7.3.jar`)
 
-### Step 1: Download Burp API
+## Installation
 
-You need the Burp Extender API JAR file to compile the extension.
+### Step 1: Configure Jython in Burp
 
-1. **Option A - Download from PortSwigger:**
-   - Go to: https://portswigger.net/burp/extender/api/
-   - Download `burp-extender-api.jar`
-   - Save it in the project root folder
+1. Open Burp Suite
+2. Go to **Extensions** > **Extensions settings** (or **Extender** > **Options** in older versions)
+3. Under **Python environment**, click **Select file** next to "Location of Jython standalone JAR file"
+4. Browse to your downloaded `jython-standalone-2.7.x.jar` and select it
 
-2. **Option B - Extract from Burp:**
-   - The API is already included in Burp Suite
-   - We'll reference it during compilation (see below)
+### Step 2: Load the Extension
 
-### Step 2: Compile the Extension
+1. Go to **Extensions** > **Installed** (or **Extender** > **Extensions**)
+2. Click **Add**
+3. Set **Extension type** to **Python**
+4. Click **Select file** and choose `extractor.py` from this repository
+5. Click **Next**
 
-Navigate to the project directory and run:
-
-```bash
-# Create output directory
-mkdir -p out
-
-# Compile (if you downloaded burp-extender-api.jar)
-javac -cp burp-extender-api.jar -d out src/burp/*.java
-
-# OR compile by referencing Burp's JAR directly (replace path to your Burp JAR)
-javac -cp "/path/to/burpsuite_community.jar" -d out src/burp/*.java
-```
-
-**Example for Linux/Mac:**
-```bash
-javac -cp "/home/user/burpsuite_community_v2024.jar" -d out src/burp/*.java
-```
-
-**Example for Windows:**
-```bash
-javac -cp "C:\Program Files\BurpSuiteCommunity\burpsuite_community.jar" -d out src\burp\*.java
-```
-
-### Step 3: Create JAR File
-
-```bash
-# Navigate to output directory
-cd out
-
-# Create JAR file
-jar -cf LinkExtractor.jar burp/*.class
-
-# Move back to project root
-cd ..
-```
-
-Your compiled extension is now at: `out/LinkExtractor.jar`
-
-### Step 4: Load Extension in Burp Suite
-
-1. **Open Burp Suite Community Edition**
-
-2. **Go to Extensions tab:**
-   - Click on **"Extensions"** tab (top menu)
-   - Go to **"Installed"** sub-tab
-
-3. **Add the extension:**
-   - Click **"Add"** button
-   - **Extension type:** Select "Java"
-   - **Extension file:** Click "Select file" and choose `out/LinkExtractor.jar`
-   - Click **"Next"**
-
-4. **Verify installation:**
-   - You should see "Link Extractor loaded successfully!" in the output
-   - A new tab called **"Link Extractor"** should appear in Burp
-
----
+You should see `JWT Extractor loaded successfully.` in the output panel and a new **"JWT Extractor"** tab in Burp.
 
 ## Usage
 
-### Basic Usage
+### Scanning for Secrets
 
-1. **Start browsing** through Burp's proxy (default: http://127.0.0.1:8080)
+1. Browse your target through Burp's proxy or load requests into the Target/Proxy tabs
+2. Select one or more requests in Proxy History, Site Map, or any message viewer
+3. **Right-click** > **Send to JWT Extractor**
+4. The extension scans the HTTP responses and displays findings in the JWT Extractor tab
 
-2. **Links will appear automatically** in the "Link Extractor" tab as you browse
+### Viewing Results
 
-3. **View results** organized by source URL:
-   ```
-   ┌─ SOURCE URL:
-   │  https://example.com/page
-   │
-   └─ DISCOVERED LINKS (5):
-      • https://example.com/api/users
-      • https://example.com/login
-      • https://api.example.com/v1/data
-      ...
-   ```
+- **Top pane** — table of all findings (token preview, pattern type, source URL, timestamp)
+- **Bottom pane** — click any row to see the full token and decoded JWT details (header, payload, signature)
 
-### Scope Filter
+### Buttons
 
-- **Enable scope filter:** Check the "Only show in-scope URLs" checkbox
-- This will only capture links from URLs defined in your target scope
-- To set scope: Go to "Target" → "Scope" tab in Burp
+| Button | Action |
+|--------|--------|
+| **Clear All** | Remove all findings |
+| **Copy Token** | Copy the selected token to clipboard |
+| **Export JSON** | Save all findings to a `.json` file |
+| **Export CSV** | Save all findings to a `.csv` file |
 
-### Export Links
+## Project Structure
 
-1. Click the **"Export to File"** button
-2. Choose a location and filename (default: `extracted_links.txt`)
-3. All discovered links will be saved in a formatted text file
-
-### Clear Links
-
-- Click **"Clear All"** button to remove all extracted links and start fresh
-
----
-
-## What Gets Extracted?
-
-### 1. Absolute URLs
 ```
-http://example.com/page
-https://api.example.com/v1/users
+extractor.py        # Entry point — IBurpExtender, IContextMenuFactory, ITab
+regex_engine.py     # Pattern registry and scan logic
+results_store.py    # Findings storage, deduplication, export
+ui_panel.py         # Swing UI — JTable, detail pane, buttons
+jwt_utils.py        # Base64URL decode, JWT validation helpers
 ```
 
-### 2. Relative Paths (converted to absolute)
-```
-Source: https://target.com/page
+## Adding New Patterns
 
-Found in response: "/api/login"
-Result: https://target.com/api/login
-```
+Open `regex_engine.py` and append a dict to the `patterns` list:
 
-### 3. Method-Endpoint Patterns
-```
-Method="GET" "/users/profile"
-→ Extracted as: https://target.com/users/profile
-```
-
-### 4. Relative References
-```
-"../api/data"
-"./images/logo.png"
+```python
+patterns = [
+    # ... existing patterns ...
+    {
+        "name": "Stripe Secret Key",
+        "pattern": re.compile(r"sk_live_[0-9a-zA-Z]{24,}"),
+        "validator": None,
+    },
+]
 ```
 
----
-
-## Build Script (Optional)
-
-For easier compilation, you can use the provided build script:
-
-### Linux/Mac:
-```bash
-chmod +x build.sh
-./build.sh
-```
-
-### Windows:
-```bash
-build.bat
-```
-
----
+That's it. The engine, store, and UI pick up new patterns automatically.
 
 ## Troubleshooting
 
-### "Cannot find symbol" error during compilation
-- Make sure you have the Burp API JAR file referenced correctly
-- Verify the path to `burpsuite_community.jar` or `burp-extender-api.jar`
+### Extension fails to load
+- Make sure Jython standalone JAR is configured (see Step 1 above)
+- Check the **Errors** tab under Extensions for stack traces
 
-### Extension doesn't load in Burp
-- Check the "Errors" tab in Extensions
-- Make sure you compiled with a compatible Java version (JDK 8+)
-- Verify the JAR file was created correctly: `jar -tf out/LinkExtractor.jar`
+### No findings after scanning
+- Verify the target responses contain text content (not just images/binaries)
+- Check Burp's **Output** tab for scan summary messages
+- Try scanning a request whose response you know contains a JWT
 
-### No links appearing
-- Make sure you're sending HTTP traffic through Burp's proxy
-- Check if scope filter is enabled (disable it to capture all traffic)
-- Verify the extension is loaded: Check "Extensions" → "Installed"
-
-### Java version mismatch
-- Burp Community uses Java 21 internally, but JDK 8+ should work for extensions
-- Compile with the same or lower Java version than your Burp installation
-
----
-
-## Development
-
-### Project Structure
-```
-burp-extensions/
-├── src/
-│   └── burp/
-│       ├── BurpExtender.java        # Main extension class
-│       └── LinkExtractorPanel.java  # UI components
-├── out/
-│   └── LinkExtractor.jar            # Compiled extension
-├── README.md                         # This file
-└── build.sh / build.bat             # Build scripts
-```
-
-### How It Works
-
-1. **HTTP Listener** - Intercepts all HTTP responses
-2. **Link Extraction** - Uses regex patterns to find URLs and endpoints
-3. **URL Resolution** - Converts relative paths to absolute URLs
-4. **Deduplication** - Maintains a global set of unique links
-5. **UI Update** - Displays results in real-time
-
----
-
-## Credits
-
-Inspired by **LinkFinder** tool for JavaScript endpoint discovery.
-
----
+### "Module not found" errors
+- Make sure all five `.py` files are in the **same directory**
+- `extractor.py` automatically adds its own directory to `sys.path`
 
 ## License
 
-This extension is provided as-is for educational and authorized security testing purposes.
-
----
-
-## Support
-
-If you encounter issues:
-1. Check the Burp "Extensions" → "Errors" tab
-2. Review the compilation steps above
-3. Verify your Java installation: `java -version`
-
-Happy bug hunting! 🔍
+Provided as-is for educational and authorized security testing purposes.
