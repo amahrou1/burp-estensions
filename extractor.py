@@ -12,7 +12,13 @@ import os
 
 # Ensure the extension directory is on the Python path so sibling modules
 # (regex_engine, results_store, etc.) can be imported.
-_ext_dir = os.path.dirname(os.path.abspath(__file__))
+# NOTE: __file__ is not defined when Burp loads scripts via execfile(),
+# so we fall back to inspect.getfile().
+try:
+    _ext_dir = os.path.dirname(os.path.abspath(__file__))
+except NameError:
+    import inspect
+    _ext_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 if _ext_dir not in sys.path:
     sys.path.insert(0, _ext_dir)
 

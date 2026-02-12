@@ -11,7 +11,7 @@ from javax.swing.table import AbstractTableModel
 from java.awt import BorderLayout, Dimension, FlowLayout, Toolkit
 from java.awt.datatransfer import StringSelection
 from java.awt.event import ActionListener
-from java.io import FileWriter
+from java.io import File, FileWriter
 from javax.swing.event import ListSelectionListener
 
 
@@ -155,7 +155,7 @@ class UIPanel(JPanel):
 
     def _export_to_file(self, content, default_name):
         chooser = JFileChooser()
-        chooser.setSelectedFile(java.io.File(default_name))
+        chooser.setSelectedFile(File(default_name))
         ret = chooser.showSaveDialog(self)
         if ret == JFileChooser.APPROVE_OPTION:
             path = chooser.getSelectedFile().getAbsolutePath()
