@@ -1,4 +1,5 @@
-# regex_engine.py — Pattern registry and scan logic
+# -*- coding: utf-8 -*-
+# regex_engine.py - Pattern registry and scan logic
 # Jython 2.7 compatible
 
 import re
@@ -7,7 +8,7 @@ from jwt_utils import is_valid_jwt
 # ---------------------------------------------------------------------------
 # Pattern registry
 # Each entry: name, compiled pattern, optional validator callable.
-# To add a new secret type, just append a dict here — nothing else changes.
+# To add a new secret type, just append a dict here - nothing else changes.
 # ---------------------------------------------------------------------------
 
 patterns = [

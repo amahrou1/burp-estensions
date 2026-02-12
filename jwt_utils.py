@@ -1,4 +1,5 @@
-# jwt_utils.py — Base64URL decode and JWT validation helpers
+# -*- coding: utf-8 -*-
+# jwt_utils.py - Base64URL decode and JWT validation helpers
 # Jython 2.7 compatible (Python 2 syntax, no external packages)
 
 import base64

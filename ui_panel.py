@@ -1,5 +1,6 @@
-# ui_panel.py — Swing UI: JTable + detail pane + action buttons
-# Jython 2.7 compatible — all UI updates via SwingUtilities.invokeLater
+# -*- coding: utf-8 -*-
+# ui_panel.py - Swing UI: JTable + detail pane + action buttons
+# Jython 2.7 compatible - all UI updates via SwingUtilities.invokeLater
 
 from javax.swing import (
     JPanel, JTable, JScrollPane, JTextArea, JSplitPane,

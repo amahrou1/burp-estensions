@@ -1,4 +1,5 @@
-# results_store.py — Findings storage, deduplication, and export
+# -*- coding: utf-8 -*-
+# results_store.py - Findings storage, deduplication, and export
 # Jython 2.7 compatible
 
 import json

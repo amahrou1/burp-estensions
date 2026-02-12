@@ -1,10 +1,11 @@
-# extractor.py — Main Burp extension entry point
+# -*- coding: utf-8 -*-
+# extractor.py - Main Burp extension entry point
 # Jython 2.7 compatible
 #
 # Implements:
-#   IBurpExtender          — extension lifecycle
-#   IContextMenuFactory    — right-click "Send to JWT Extractor"
-#   ITab                   — custom tab in Burp UI
+#   IBurpExtender          - extension lifecycle
+#   IContextMenuFactory    - right-click "Send to JWT Extractor"
+#   ITab                   - custom tab in Burp UI
 
 import sys
 import os
