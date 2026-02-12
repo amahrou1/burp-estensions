@@ -25,6 +25,7 @@ if _ext_dir not in sys.path:
 from burp import IBurpExtender, IContextMenuFactory, ITab
 from javax.swing import JMenuItem, SwingUtilities
 from java.awt.event import ActionListener
+from java.lang import Runnable
 
 import regex_engine
 from results_store import ResultsStore
@@ -118,7 +119,6 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, ITab):
                 continue
 
             # Determine source URL
-            service = msg.getHttpService()
             url = self._helpers.analyzeRequest(msg).getUrl()
             source_url = str(url)
 
@@ -188,7 +188,7 @@ class _MenuAction(ActionListener):
             self._extender._process_messages(messages)
 
 
-class _Runnable(object):
+class _Runnable(Runnable):
     """Wrap a callable for SwingUtilities.invokeLater."""
     def __init__(self, fn):
         self._fn = fn

@@ -12,6 +12,7 @@ from java.awt import BorderLayout, Dimension, FlowLayout, Toolkit
 from java.awt.datatransfer import StringSelection
 from java.awt.event import ActionListener
 from java.io import File, FileWriter
+from java.lang import Runnable
 from javax.swing.event import ListSelectionListener
 
 
@@ -38,6 +39,8 @@ class FindingsTableModel(AbstractTableModel):
         return COLUMNS[col]
 
     def getValueAt(self, row, col):
+        if row < 0 or row >= self._store.size():
+            return ""
         f = self._store.get(row)
         if col == 0:
             return str(row + 1)
@@ -189,7 +192,7 @@ class _SelectionListener(ListSelectionListener):
             self._panel._on_row_selected()
 
 
-class _Runnable(object):
+class _Runnable(Runnable):
     """Wrap a callable so it can be passed to SwingUtilities.invokeLater."""
 
     def __init__(self, fn):
