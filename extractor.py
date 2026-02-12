@@ -1,38 +1,64 @@
-# extractor.py — Main Burp extension entry point
+# -*- coding: utf-8 -*-
+# extractor.py - Main Burp extension entry point
 # Jython 2.7 compatible
 #
 # Implements:
-#   IBurpExtender          — extension lifecycle
-#   IContextMenuFactory    — right-click "Send to JWT Extractor"
-#   ITab                   — custom tab in Burp UI
+#   IBurpExtender          - extension lifecycle
+#   IContextMenuFactory    - right-click "Send to Secret Extractor"
+#   ITab                   - custom tab in Burp UI
 
 import sys
 import os
 
 # Ensure the extension directory is on the Python path so sibling modules
 # (regex_engine, results_store, etc.) can be imported.
-_ext_dir = os.path.dirname(os.path.abspath(__file__))
+# NOTE: __file__ is not defined when Burp loads scripts via execfile(),
+# so we fall back to inspect.getfile().
+try:
+    _ext_dir = os.path.dirname(os.path.abspath(__file__))
+except NameError:
+    import inspect
+    _ext_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 if _ext_dir not in sys.path:
     sys.path.insert(0, _ext_dir)
 
 from burp import IBurpExtender, IContextMenuFactory, ITab
 from javax.swing import JMenuItem, SwingUtilities
 from java.awt.event import ActionListener
+from java.lang import Runnable
 
 import regex_engine
 from results_store import ResultsStore
 from ui_panel import UIPanel
 
+EXTENSION_NAME = "Secret Extractor"
+
 # Content-Type prefixes we consider worth scanning
 _SCANNABLE_TYPES = (
-    "text/",
+    "text/html",
+    "text/plain",
+    "text/javascript",
     "application/javascript",
+    "application/x-javascript",
     "application/json",
     "application/xml",
-    "application/x-javascript",
+    "text/xml",
+    "text/css",
+    "application/x-www-form-urlencoded",
 )
 
-EXTENSION_NAME = "JWT Extractor"
+# Content-Type prefixes we always skip (binary)
+_SKIP_TYPES = (
+    "image/",
+    "video/",
+    "audio/",
+    "application/octet-stream",
+    "application/pdf",
+    "font/",
+)
+
+# URL suffixes that indicate scannable content even without a matching Content-Type
+_SCANNABLE_EXTENSIONS = (".js", ".json", ".html", ".xml", ".css", ".map")
 
 
 class BurpExtender(IBurpExtender, IContextMenuFactory, ITab):
@@ -79,7 +105,6 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, ITab):
         menu_items = []
         ctx = invocation.getInvocationContext()
 
-        # Show our menu item when user right-clicks on messages
         if ctx in (
             invocation.CONTEXT_MESSAGE_EDITOR_REQUEST,
             invocation.CONTEXT_MESSAGE_VIEWER_REQUEST,
@@ -104,29 +129,40 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, ITab):
         if not http_messages:
             return
 
+        total = len(http_messages)
         new_count = 0
-        for msg in http_messages:
+
+        for idx in range(total):
+            msg = http_messages[idx]
             response = msg.getResponse()
             if response is None:
                 continue
 
             # Determine source URL
-            service = msg.getHttpService()
             url = self._helpers.analyzeRequest(msg).getUrl()
             source_url = str(url)
+
+            self._callbacks.printOutput(
+                "[%s] Scanning %d/%d: %s" % (EXTENSION_NAME, idx + 1, total, source_url)
+            )
 
             # Analyse response info to get Content-Type
             resp_info = self._helpers.analyzeResponse(response)
             content_type = self._get_content_type(resp_info)
 
             # Skip binary / non-text responses
-            if not self._is_scannable(content_type):
+            if not self._is_scannable(content_type, source_url):
                 continue
 
             # Get response body as string
             body_offset = resp_info.getBodyOffset()
             body_bytes = response[body_offset:]
             body_text = self._helpers.bytesToString(body_bytes)
+
+            # Also scan if body looks like JSON regardless of Content-Type
+            # (already covered by _is_scannable URL check, but also check body start)
+            if not body_text:
+                continue
 
             # Run regex engine
             matches = regex_engine.scan(body_text)
@@ -136,13 +172,20 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, ITab):
                     source_url=source_url,
                     content_type=content_type,
                     pattern_name=m["pattern_name"],
+                    category=m["category"],
+                    severity=m["severity"],
+                    confidence=m["confidence"],
+                    description=m["description"],
+                    context_hint=m["context_hint"],
+                    context_before=m["context_before"],
+                    context_after=m["context_after"],
                 )
                 if added:
                     new_count += 1
 
         self._callbacks.printOutput(
-            "Scanned %d message(s), found %d new finding(s)."
-            % (len(http_messages), new_count)
+            "[%s] Scan complete. Found %d new secret(s) in %d response(s)."
+            % (EXTENSION_NAME, new_count, total)
         )
 
     @staticmethod
@@ -155,14 +198,28 @@ class BurpExtender(IBurpExtender, IContextMenuFactory, ITab):
         return ""
 
     @staticmethod
-    def _is_scannable(content_type):
-        """Return True if content_type looks like text we should scan."""
+    def _is_scannable(content_type, url=""):
+        """Return True if this response should be scanned for secrets."""
+        # If Content-Type is missing, scan anyway
         if not content_type:
-            # If unknown, scan anyway (better safe than sorry)
             return True
-        for prefix in _SCANNABLE_TYPES:
+
+        # Skip known binary types
+        for prefix in _SKIP_TYPES:
             if content_type.startswith(prefix):
+                return False
+
+        # Check against scannable Content-Types
+        for scannable in _SCANNABLE_TYPES:
+            if content_type.startswith(scannable):
                 return True
+
+        # Check URL extension as fallback
+        url_lower = url.lower().split("?")[0]  # strip query string
+        for ext in _SCANNABLE_EXTENSIONS:
+            if url_lower.endswith(ext):
+                return True
+
         return False
 
 
@@ -181,7 +238,7 @@ class _MenuAction(ActionListener):
             self._extender._process_messages(messages)
 
 
-class _Runnable(object):
+class _Runnable(Runnable):
     """Wrap a callable for SwingUtilities.invokeLater."""
     def __init__(self, fn):
         self._fn = fn

@@ -1,17 +1,20 @@
-# jwt_utils.py — Base64URL decode and JWT validation helpers
+# -*- coding: utf-8 -*-
+# secret_utils.py - JWT decode, secret masking, and context formatting
 # Jython 2.7 compatible (Python 2 syntax, no external packages)
 
 import base64
 import json
 
 
+# ---------------------------------------------------------------------------
+# Base64URL / JWT helpers
+# ---------------------------------------------------------------------------
+
 def base64url_decode(data):
     """Decode Base64URL-encoded string (no padding required)."""
-    # Add padding if needed
     missing_padding = len(data) % 4
     if missing_padding:
         data += "=" * (4 - missing_padding)
-    # Replace URL-safe characters with standard Base64 characters
     data = data.replace("-", "+").replace("_", "/")
     return base64.b64decode(data)
 
@@ -68,3 +71,45 @@ def pretty_print_jwt(token):
     lines.append("=== SIGNATURE (Base64URL) ===")
     lines.append(decoded["signature_raw"])
     return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# JWT validator for regex_engine
+# ---------------------------------------------------------------------------
+
+def validate_jwt(match):
+    """Validate a JWT by decoding the header and checking for 'alg' field."""
+    try:
+        header = match.split(".")[0]
+        padding = 4 - len(header) % 4
+        if padding != 4:
+            header += "=" * padding
+        header = header.replace("-", "+").replace("_", "/")
+        decoded = base64.b64decode(str(header))
+        parsed = json.loads(decoded)
+        return "alg" in parsed
+    except Exception:
+        return False
+
+
+# ---------------------------------------------------------------------------
+# Secret masking
+# ---------------------------------------------------------------------------
+
+def mask_secret(value, show_chars=6):
+    """Show first N chars, mask the rest. E.g., 'AKIA4E...[REDACTED]'"""
+    if len(value) <= show_chars:
+        return value
+    return value[:show_chars] + "...[REDACTED]"
+
+
+# ---------------------------------------------------------------------------
+# Context formatting
+# ---------------------------------------------------------------------------
+
+def format_context(context_before, match, context_after, max_width=120):
+    """Format context with match highlighted for display in detail pane."""
+    before = context_before[-60:]
+    token_display = match[:80] if len(match) > 80 else match
+    after = context_after[:60]
+    return "...%s[%s]%s..." % (before, token_display, after)
